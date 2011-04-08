@@ -1,4 +1,11 @@
-# this is a namespace package
+"""
+CKAN Follower Extension: Allow users to follow packages.
+
+Follower is a CKAN extension - http://ckan.org/wiki/Extensions.
+Enable by adding to your ckan.plugins line in the CKAN config::
+
+    ckan.plugins = follower
+"""
 try:
     import pkg_resources
     pkg_resources.declare_namespace(__name__)
