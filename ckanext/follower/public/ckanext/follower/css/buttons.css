@@ -43,20 +43,22 @@ a.button span {
 }
 a.button:hover {
 	background-position: left -246px;
+    cursor: pointer;
 }
 a.button:hover span {
 	background-position: right -572px;
 }
-a.button:active, .grey-active-button {
+a.button:active {
 	background-position: left -273px;
 }
-a.button:active span, .grey-active-button span {
+a.button:active span {
 	background-position: right -599px;
 }
 
 a.positive-button {
 	background-position: left -219px;
 	padding-top: 3px;
+	color: #333;
 }
 a.positive-button span {
 	background-position: right -545px;
@@ -64,14 +66,16 @@ a.positive-button span {
 }
 a.positive-button:hover {
 	background-position: left -27px;
+	color: #333;
+    cursor: pointer;
 }
 a.positive-button:hover span {
 	background-position: right -353px;
 }
-a.positive-button:active, .green-active-button {
+a.positive-button:active {
 	background-position: left -54px;
 }
-a.positive-button:active span, .green-active-button span {
+a.positive-button:active span {
 	background-position: right -380px;
 }
 
@@ -86,6 +90,7 @@ a.negative-button span {
 a.negative-button:hover {
 	background-position: left -137px;
 	color: #fff !important;
+    cursor: pointer;
 }
 a.negative-button:hover span {
 	background-position: right -463px;

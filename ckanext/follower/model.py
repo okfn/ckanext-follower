@@ -8,13 +8,13 @@ from ckan.model.types import make_uuid
 from datetime import datetime
 
 follower_table = meta.Table('follower', meta.metadata,
-        meta.Column('id', meta.types.UnicodeText, primary_key=True, 
-                    default=make_uuid),
-        meta.Column('user_id', meta.types.UnicodeText),
-        meta.Column('table', meta.types.UnicodeText),
-        meta.Column('object_id', meta.types.UnicodeText),
-        meta.Column('created', meta.DateTime, default=datetime.now),
-        )
+    meta.Column('id', meta.types.UnicodeText, primary_key=True, 
+                default=make_uuid),
+    meta.Column('user_id', meta.types.UnicodeText),
+    meta.Column('table', meta.types.UnicodeText),
+    meta.Column('object_id', meta.types.UnicodeText),
+    meta.Column('created', meta.DateTime, default=datetime.now),
+    )
 
 class Follower(object):
     def __init__(self, user_id, table, object_id):
@@ -33,7 +33,6 @@ meta.mapper(Follower, follower_table)
 
 if __name__ == "__main__":
     # TODO: for testing only, remove
-
     engine = sa.create_engine('postgresql://ckantest:pass@localhost/ckantest')
     model.init_model(engine)
 
