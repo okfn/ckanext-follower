@@ -12,12 +12,14 @@ BODY_CODE = """
 <script type="text/javascript" src="/ckanext/follower/follower.js"></script>
 <script type="text/javascript">
     $('document').ready(function($){
-        CKANEXT.FOLLOWER.init('%(package_id)s', '%(user_id)s','%(location)s');
+        CKANEXT.FOLLOWER.init('%(package_id)s', '%(user_id)s');
     });
 </script>
 """
 
 FOLLOWER_CODE = """
 <span id="follower">
+<a id="package-followers"></a>
+<a id="follow-button"></a>
 </span>
 """

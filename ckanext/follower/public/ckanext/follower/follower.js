@@ -6,78 +6,139 @@
 var CKANEXT = CKANEXT || {};
 
 CKANEXT.FOLLOWER = {
-    init:function(packageID, userID, nodeID){
-        var node = $(nodeID);
-        this.packageFollowers(packageID, node);
-        this.followPackage(packageID, userID, node);
+    init:function(packageID, userID){
+        this.packageID = packageID;
+        this.userID = userID;
+        this.isFollowing = this.isFollowingPackage();
+        this.packageFollowers();
+        this.followPackage(packageID, userID);
     },
 
-    packageFollowers:function(packageID, node){
-        // show the number of people following this package
+    // returns true if the user (this.userID)
+    // is following the package (this.packageID), 
+    // returns false otherwise
+    isFollowingPackage:function(){
+        var isFollowing = false;
+        var userID = this.userID;
+
+        var findUser = function(data){
+            for(var i = 0; i < data.length; i++){
+                if(data[i].id == userID){
+                    isFollowing = true;
+                    break;
+                }
+            }
+        };
+
+        // this has to be synchronous so we know whether to display
+        // 'follow' or 'unfollow' initially
+        $.ajax({method: 'GET',
+                url: '/api/2/follower/package/' + this.packageID,
+                dataType: 'json',
+                async:   false,
+                success: findUser
+        }); 
+
+        return isFollowing;
+    },
+
+    // show the number of people following this package
+    packageFollowers:function(){
+        var packageID = this.packageID;
+
         $.getJSON('/api/2/follower/package/' + packageID,
             function(data){
-                // node.append('<h3>' + data[0].username + '</h3>');
-                //
-                // for(user in data){
-                    // node.append('<h3>' + data[user].username + '</h3>');
-                // }
-                var html = '<a href="HREF" class="button pcb"><span>TEXT</span></a>'
+                var html = '<a href="HREF" id="package-followers" ' +
+                    'class="button pcb"><span>TEXT</span></a>'
                 var text = data.length + " Following";
-                var followersURL = "#";
+                var followersURL = "/api/2/follower/package/" + packageID;
                 html = html.replace('HREF', followersURL);
                 html = html.replace('TEXT', text);
-                node.append(html);
-            });
+
+                // replace the package followers button
+                $('a#package-followers').replaceWith(html);
+        });
     },
 
-    followPackage:function(packageID, userID, node){
+    // callback function for the follow button being clicked
+    follow:function(){
+        // post follow info to follower API
+        followerData = {user_id: CKANEXT.FOLLOWER.userID,
+                        object_type: 'package',
+                        package_id: CKANEXT.FOLLOWER.packageID};
+        $.post("/api/2/follower", followerData,
+            // successful follow
+            function(response){
+                // update the button text and class
+                // $('#follow-button-text').replaceWith("<span>Unfollow</span>");
+                // $('#follow-button')
+                //     .removeClass("positive-button")
+                //     .addClass("negative-button");
+                // remove any existing error message
+                $('div#follower-error').remove();
+                // update the follower count
+                CKANEXT.FOLLOWER.packageFollowers();
+                // update the follow button
+                CKANEXT.FOLLOWER.isFollowing = true;
+                CKANEXT.FOLLOWER.followPackage();
+            })
+        .error(
+            function(error){
+                // JSON error message is contained in error.responseText
+                // HTTP error code is in error.status
+                var errorHtml = '<div id="follower-error">Error: ' +
+                    'Could not follow this package, please try again' +
+                    ' later (Error STATUS)</div>';
+                errorHtml = errorHtml.replace('STATUS', error.status);
+                
+                // if an error message already exists, replace it
+                var errorNode = $('div#follower-error')
+                if(errorNode.length > 0){
+                    errorNode.replaceWith(errorHtml);
+                }
+                // if not, create a DIV after the heading
+                else{
+                    $('h2.head').after(errorHtml);
+                }
+        });
+     },
+
+    // callback function for the unfollow button being clicked
+    unfollow:function(){
+        alert('unfollow');
+     },
+
+    followPackage:function(){
         // if userID is not set (empty string), then just
         // display a disabled button, prompting the user 
         // to login in order to follow a package
-        
-        // get the number of people following this package
-        $.getJSON('/api/2/follower/package/' + packageID,
-            function(data){
-                var html = '<a id="follow-button" class="positive-button pcb">' +
-                    '<span id="follow-button-text">TEXT</span></a>';
-                var text = "Follow";
-                html = html.replace('TEXT', text);
-                node.append(html);
+        if(this.userID == ''){
+            var html = '<a id="follow-button" class="disabled-button pcb">' +
+                '<span id="follow-button-text">Login to follow packages</span></a>';
+            $('a#follow-button').replaceWith(html);
+            return;
+        }
 
-                // post follow info to follower API
-                $('a#follow-button').click(function() {
-                    followerData = {user_id: userID,
-                                    object_type: 'package',
-                                    package_id: packageID};
-                    $.post("/api/2/follower", followerData,
-                        function(response){
-                            alert(response.status);
-                            // update the button text and class
-                            $('#follow-button-text').replaceWith("<span>Unfollow</span>");
-                            $('#follow-button')
-                                .removeClass("positive-button")
-                                .addClass("negative-button");
-                        })
-                    .error(
-                        function(error){
-                            // JSON error message is contained in error.responseText
-                            // HTTP error code is in error.status
-                            var error_html = '<div id="follower-error">Error: ' +
-                                'This package could not be followed, please try ' +
-                                'again later (Error STATUS)</div>';
-                            error_html = error_html.replace('STATUS', error.status);
-                            
-                            // if an error message already exists, replace it
-                            error_node = $('#follower-error')
-                            if(error_node.length > 0){
-                                error_node.replaceWith(error_html);
-                            }
-                            // if not, create a DIV after the heading
-                            else{
-                                $('h2.head').after(error_html);
-                            }
-                        });
-                });
-            });
+        // create the follow/unfollow button
+        var html = '<a id="follow-button" class="pcb">' +
+            '<span id="follow-button-text">TEXT</span></a>';
+        var buttonText = "Follow";
+        if(this.isFollowing){
+            buttonText = "Unfollow";
+        }
+        html = html.replace('TEXT', buttonText);
+        $('a#follow-button').replaceWith(html);
+
+        // register callback functions to follow/unfollow
+        if(this.isFollowing){
+            $('a#follow-button').click(CKANEXT.FOLLOWER.unfollow);
+            $('a#follow-button').addClass('negative-button');
+            $('a#follow-button').removeClass('positive-button');
+        }
+        else{
+            $('a#follow-button').click(CKANEXT.FOLLOWER.follow);
+            $('a#follow-button').addClass('positive-button');
+            $('a#follow-button').removeClass('negative-button');
+        }
     }
 };
