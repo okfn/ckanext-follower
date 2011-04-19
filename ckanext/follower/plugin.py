@@ -17,7 +17,6 @@ from genshi.filters import Transformer
 from pylons.decorators import jsonify
 from pylons import request, tmpl_context as context
 from ckan.lib.base import BaseController, response
-from ckan.model import User
 from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.interfaces import IConfigurable, IRoutes, IGenshiStreamFilter
 
@@ -27,13 +26,26 @@ from ckanext.follower import html
 def _get_user_id():
     """
     """
-    user_name = request.environ.get('REMOTE_USER')
-    query = User.search(user_name)
-    users = query.all()
-    if users:
-        return str(users[0].id)
-    else:
+    try:
+        user_name = request.environ.get('REMOTE_USER')
+        query = model.User.search(user_name)
+        user = query.first()
+        return str(user.id)
+
+    except Exception as e:
+        log.info("Error: " + str(e))
         return ""
+
+def _get_user_full_name(id):
+    """
+    """
+    query = model.Session.query(model.User).filter(model.User.id == id)
+    user = query.first()
+    if user:
+        return str(user.fullname)
+    else:
+        return "Unknown"
+
 
 class FollowerPlugin(SingletonPlugin):
     """
@@ -81,12 +93,8 @@ class FollowerPlugin(SingletonPlugin):
            context.pkg.id):
             # pass data to the javascript file that creates the
             # follower count and follow/unfollow buttons
-            #
-            # the location variable specifies the ID of the
-            # HTML tag that the buttons will be appended to
             data = {'package_id': context.pkg.id,
-                    'user_id': _get_user_id(),
-                    'location': '#follower'}
+                    'user_id': _get_user_id()}
             # add CSS styles for follower HTML
             stream = stream | Transformer('head').append(HTML(html.HEAD_CODE))
             # add jquery and follower.js links
@@ -102,49 +110,88 @@ class FollowerPlugin(SingletonPlugin):
 class FollowerAPIController(BaseController):
     """
     """
-    VALID_OBJECT_TYPES = ['package']
+    def _follow_package(self, user_id, table, package_id):
+        """
+        """
+        session = model.meta.Session()
+
+        try:
+            follower = model.Follower(unicode(user_id),
+                                      unicode(table),
+                                      unicode(package_id))
+            session.add(follower)
+            session.commit()
+            return True
+
+        except Exception as e:
+            log.info("Error: " + str(e))
+            session.rollback()
+            return False
 
     @jsonify
-    def index(self, user_id=None):
+    def index(self):
         """
         """
-        # get the user ID from the request
-        if not 'user_id' in request.POST:
-            response.status_int = 400
-            return {'error': "No user ID specified"}
-        user_id = request.POST['user_id']
+        # if POST request, should be trying to add a follower
+        if request.POST:
+            # get the user ID from the request
+            if not 'user_id' in request.POST:
+                response.status_int = 400
+                return {'error': "No user ID specified"}
+            user_id = request.POST['user_id']
 
-        # make sure this matches the user_id of the current user
-        if not user_id == _get_user_id():
-            response.status_int = 403
-            return {'error': "You are not authorized to make this request"}
+            # make sure this matches the user_id of the current user
+            if not user_id == _get_user_id():
+                response.status_int = 403
+                return {'error': "You are not authorized to make this request"}
 
-        # check for an object type 
-        # this specifies the type of object to follow, currently accepts
-        # only 'package'
-        if not 'object_type' in request.POST:
-            response.status_int = 400
-            return {'error': "No object type specified"}
-        object_type = request.POST['object_type']
+            # check for an object type 
+            # this specifies the type of object to follow, currently accepts
+            # only 'package'
+            if not 'object_type' in request.POST:
+                response.status_int = 400
+                return {'error': "No object type specified"}
+            object_type = request.POST['object_type']
 
-        # make sure that the object_type is valid
-        if not object_type in self.VALID_OBJECT_TYPES:
-            response.status_int = 400
-            return {'error': "Invalid object type"}
+            # make sure that the object_type is valid
+            if not object_type in model.VALID_OBJECT_TYPES:
+                response.status_int = 400
+                return {'error': "Invalid object type"}
 
-        # check for a package ID
-        if not 'package_id' in request.POST:
-            response.status_int = 400
-            return {'error': "No package ID specified"}
-        package_id = request.POST['package_id']
+            # check for a package ID
+            if not 'package_id' in request.POST:
+                response.status_int = 400
+                return {'error': "No package ID specified"}
+            package_id = request.POST['package_id']
 
-        return {'status': package_id}
-        # return {'status': "Success"}
+            # update the database
+            if self._follow_package(user_id, object_type, package_id):
+                return {'status': "Success"}
+            else:
+                response.status_int = 500
+                return {'error': "Could not update database"}
+        
+        # if not, just return a default message
+        else:
+            return {'doc': __doc__,
+                    'doc_url': 'http://ckan.org/wiki/Extensions'}
 
     @jsonify
     def package(self, id):
         """
         """
-        users = []
-        users.append({'username': 'testuser'})
-        return users
+        try:
+            query = model.Session.query(model.Follower)\
+                .filter(model.Follower.table == 'package')\
+                .filter(model.Follower.object_id == id)
+
+            users = []
+            for follower in query:
+                users.append({'id': follower.user_id,
+                              'name': _get_user_full_name(follower.user_id)})
+            return users
+
+        except Exception as e:
+            log.info("Error: " + str(e))
+            response.status_int = 500
+            return {'error': "Could not get package followers"}
