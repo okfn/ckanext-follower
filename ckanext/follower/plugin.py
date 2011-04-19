@@ -25,6 +25,8 @@ from ckanext.follower import html
 
 def _get_user_id():
     """
+    Returns the user ID of the user that is currently
+    logged in (user name set in REMOTE_USER environment var).
     """
     try:
         user_name = request.environ.get('REMOTE_USER')
@@ -38,6 +40,7 @@ def _get_user_id():
 
 def _get_user_full_name(id):
     """
+    Returns the full name of the user with a given ID.
     """
     query = model.Session.query(model.User).filter(model.User.id == id)
     user = query.first()
@@ -50,7 +53,9 @@ def _get_user_full_name(id):
 class FollowerPlugin(SingletonPlugin):
     """
     Allow users to follow packages.
-    Inserts javascript/html into package pages.
+
+    Inserts javascript/html into package pages and exposes the
+    follower API.
     """
     implements(IConfigurable)
     implements(IRoutes, inherit=True)
@@ -59,6 +64,9 @@ class FollowerPlugin(SingletonPlugin):
     def configure(self, config):
         """
         Called upon CKAN setup.
+
+        Create follower table in the database and add the
+        public folder to CKAN's list of public folders.
         """
         # create the follower table if it doesn't already exist
         model.follower_table.create(checkfirst=True)
@@ -73,6 +81,12 @@ class FollowerPlugin(SingletonPlugin):
 
     def before_map(self, map):
         """
+        Expose the follower API.
+
+        Creates two endpoints:
+        * /api/2/follower: allow users to follow/unfollow packages
+        * /api/2/package/{id}: get a list of users following a given
+          package
         """
         map.connect('follower', '/api/2/follower',
             controller='ckanext.follower.plugin:FollowerAPIController',
@@ -85,6 +99,11 @@ class FollowerPlugin(SingletonPlugin):
     def filter(self, stream):
         """
         Required to implement IGenshiStreamFilter.
+
+        Only applies to package controllers with the read action.
+        Adds HTML to the document HEAD, the package heading and
+        the bottom of the body to create the follow/unfollow button
+        and the follower count button.
         """
         routes = request.environ.get('pylons.routes_dict')
         # if this is the read action of a package, show follower info
@@ -109,9 +128,16 @@ class FollowerPlugin(SingletonPlugin):
 
 class FollowerAPIController(BaseController):
     """
+    The CKANEXT-Follower API
+
+    Creates two endpoints:
+    * index: allow users to follow/unfollow packages
+    * package/{id}: get a list of users following a given package
     """
     def _follow_package(self, user_id, table, package_id):
         """
+        Update the database, setting user_id to follow
+        package_id.
         """
         session = model.meta.Session()
 
@@ -131,6 +157,10 @@ class FollowerAPIController(BaseController):
     @jsonify
     def index(self):
         """
+        follow API endpoint.
+
+        POST actions request that a user is marked as following a given package.
+        Format: {user_id, object_type, object_id}
         """
         # if POST request, should be trying to add a follower
         if request.POST:
@@ -179,6 +209,10 @@ class FollowerAPIController(BaseController):
     @jsonify
     def package(self, id):
         """
+        package API endpoint.
+
+        Returns a list of {id, name} pairs for each user that
+        follow this package.
         """
         try:
             query = model.Session.query(model.Follower)\
