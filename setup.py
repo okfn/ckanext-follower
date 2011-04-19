@@ -14,8 +14,11 @@ setup(
 	author_email='j@johnglover.net',
 	url='',
 	license='mit',
-	packages=find_packages(exclude=['tests']),
+    packages=find_packages(exclude=['tests']),
 	namespace_packages=['ckanext'],
+    package_data = {'ckanext.follower' : ['public/ckanext-follower/*.js', 
+                                          'public/ckanext-follower/css/*.css',
+                                          'public/ckanext-follower/images/*.png']},
 	include_package_data=True,
 	zip_safe=False,
 	install_requires=[
