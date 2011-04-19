@@ -38,15 +38,8 @@ meta.mapper(Follower, follower_table)
 
 if __name__ == "__main__":
     # TODO: for testing only, remove
+    # wipe follower table
     engine = sa.create_engine('postgresql://ckantest:pass@localhost/ckantest')
     model.init_model(engine)
-
     follower_table.drop(checkfirst=True)
     follower_table.create(checkfirst=True)
-
-    # follower_1 = Follower(u'1', u'expenses', u'1')
-    # print follower_1
-    # session = meta.Session()
-    # session.add(follower_1)
-    # session.commit()
-    # print follower_1.id
