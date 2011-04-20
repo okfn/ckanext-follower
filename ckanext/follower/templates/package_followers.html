@@ -1,0 +1,31 @@
+<html xmlns:py="http://genshi.edgewall.org/"
+      xmlns:i18n="http://genshi.edgewall.org/i18n"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      py:strip="">
+
+  <py:def function="page_title">${c.pkg.title or c.pkg.name} - Data Packages - Followers</py:def>
+  <link rel="stylesheet"  type="text/css" media="screen, print"
+        href="/ckanext-follower/css/pages.css"
+        py:def="optional_head()" />
+
+  <div py:match="content" class="package">
+    <!-- Title -->
+    <h2 class="head">
+      ${c.pkg.title} - Followers
+    </h2>
+
+    <div py:choose="">
+        <span py:when="not c.followers">
+            There are currently no users following this package.
+        </span>
+
+        <ul py:otherwise="" id="follower-list">
+        <py:for each="user in c.followers">
+          <li>${h.linked_user(user.id)}</li> 
+        </py:for>
+        </ul>
+    </div>
+  </div> <!-- content -->
+
+  <xi:include href="package/layout.html" />
+</html>

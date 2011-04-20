@@ -17,7 +17,8 @@ from genshi.filters import Transformer
 from pylons import request, tmpl_context as c
 from webob import Request
 from ckan.plugins import SingletonPlugin, implements
-from ckan.plugins.interfaces import IConfigurable, IRoutes, IGenshiStreamFilter
+from ckan.plugins.interfaces import (IConfigurable, IRoutes, 
+                                     IGenshiStreamFilter, IConfigurer)
 
 from ckanext.follower import model
 from ckanext.follower import html
@@ -59,19 +60,18 @@ class FollowerPlugin(SingletonPlugin):
     follower API.
     """
     implements(IConfigurable)
+    implements(IConfigurer, inherit=True)
     implements(IRoutes, inherit=True)
     implements(IGenshiStreamFilter)
 
-    def configure(self, config):
+    def update_config(self, config):
         """
-        Called upon CKAN setup.
+        Called during CKAN setup.
 
-        Create follower table in the database and add the
-        public folder to CKAN's list of public folders.
+        Add the public folder to CKAN's list of public folders,
+        and add the templates folder to CKAN's list of template
+        folders.
         """
-        # create the follower table if it doesn't already exist
-        model.follower_table.create(checkfirst=True)
-        
         # add follower public folder to the CKAN's list of public folders
         here = os.path.dirname(__file__)
         public_dir = os.path.join(here, 'public')
@@ -79,13 +79,21 @@ class FollowerPlugin(SingletonPlugin):
             config['extra_public_paths'] += ',' + public_dir
         else:
             config['extra_public_paths'] = public_dir
-
         # add follower template folder to the CKAN's list of template folders
         template_dir = os.path.join(here, 'templates')
         if config.get('extra_template_paths'):
             config['extra_template_paths'] += ',' + template_dir
         else:
             config['extra_template_paths'] = template_dir
+
+    def configure(self, config):
+        """
+        Called at the end of CKAN setup.
+
+        Create follower table in the database 
+        """
+        # create the follower table if it doesn't already exist
+        model.follower_table.create(checkfirst=True)
 
     def before_map(self, map):
         """

@@ -51,7 +51,7 @@ CKANEXT.FOLLOWER = {
                 var html = '<a href="HREF" id="package-followers" ' +
                     'class="button pcb"><span>TEXT</span></a>'
                 var text = data.length + " Following";
-                var followersURL = "/api/2/follower/package/" + packageID;
+                var followersURL = "/package/followers/" + packageID;
                 html = html.replace('HREF', followersURL);
                 html = html.replace('TEXT', text);
 

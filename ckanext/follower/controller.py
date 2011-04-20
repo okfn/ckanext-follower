@@ -11,22 +11,11 @@ This extension provides a new API: /api/follower
 from logging import getLogger
 log = getLogger(__name__)
 
+from pylons.i18n import _
 from pylons.decorators import jsonify
 from pylons import request, tmpl_context as c
-from ckan.lib.base import BaseController, response, render
-
+from ckan.lib.base import BaseController, response, render, abort
 from ckanext.follower import model
-
-def _get_user_full_name(id):
-    """
-    Returns the full name of the user with a given ID.
-    """
-    query = model.Session.query(model.User).filter(model.User.name == id)
-    user = query.first()
-    if user:
-        return str(user.fullname)
-    else:
-        return "Unknown"
 
 
 class FollowerController(BaseController):
@@ -118,6 +107,19 @@ class FollowerController(BaseController):
         # valid request
         return (200, {'status': "OK" })
 
+    def _get_followers(self, package_id):
+        """
+        Returns a list of {id: <user_id>} dicts for each user that
+        follows this package.
+        """
+        query = model.Session.query(model.Follower)\
+            .filter(model.Follower.table == 'package')\
+            .filter(model.Follower.object_id == package_id)
+
+        users = []
+        for follower in query:
+            users.append({'id': follower.user_id})
+        return users
 
     @jsonify
     def index(self):
@@ -175,27 +177,19 @@ class FollowerController(BaseController):
         """
         package API endpoint.
 
-        Returns a list of {id, name} pairs for each user that
-        follow this package.
+        Returns a list of {id: <user_id>} objects for each user that
+        follows this package.
         """
-        try:
-            query = model.Session.query(model.Follower)\
-                .filter(model.Follower.table == 'package')\
-                .filter(model.Follower.object_id == id)
-
-            users = []
-            for follower in query:
-                users.append({'id': follower.user_id,
-                              'name': _get_user_full_name(follower.user_id)})
-            return users
-
-        except Exception as e:
-            log.info("Error: " + str(e))
-            response.status_int = 500
-            return {'error': "Could not get package followers"}
+        return self._get_followers(id)
 
     def package_followers_page(self, id):
         """
+        Display a page containing all of the users that are following
+        a given package.
         """
-        # return render("/ckanext-follower/package_followers.html")
-        return "Package: " + str(id)
+        c.pkg = model.Package.get(id)
+        if not c.pkg:
+            abort(404, _('Package not found'))
+
+        c.followers = self._get_followers(id)
+        return render("package_followers.html")
