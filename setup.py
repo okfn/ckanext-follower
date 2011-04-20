@@ -15,7 +15,7 @@ setup(
 	url='',
 	license='mit',
     packages=find_packages(exclude=['tests']),
-	namespace_packages=['ckanext'],
+    namespace_packages=['ckanext', 'ckanext.follower'],
     package_data = {'ckanext.follower' : ['public/ckanext-follower/*.js', 
                                           'public/ckanext-follower/css/*.css',
                                           'public/ckanext-follower/images/*.png',
