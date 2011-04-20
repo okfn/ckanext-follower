@@ -9,7 +9,7 @@ Installation and Activation
 
 To install the plugin, enter your virtualenv and install the source:
 
-    $ pip install -e hg+http://bitbucket.org/johnglover/ckanext-follower
+    $ pip install hg+http://bitbucket.org/johnglover/ckanext-follower
 
 This will also register a plugin entry point, so you now should be 
 able to add the following to your CKAN .ini file:
