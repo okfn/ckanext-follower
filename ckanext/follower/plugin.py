@@ -14,14 +14,13 @@ log = getLogger(__name__)
 
 from genshi.input import HTML
 from genshi.filters import Transformer
-from pylons.decorators import jsonify
-from pylons import request, tmpl_context as context
+from pylons import request, tmpl_context as c
 from webob import Request
-from ckan.lib.base import BaseController, response
 from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.interfaces import IConfigurable, IRoutes, IGenshiStreamFilter
 
 from ckanext.follower import model
+from ckanext.follower import controller
 from ckanext.follower import html
 
 def _get_user_id():
@@ -38,17 +37,6 @@ def _get_user_id():
     except Exception as e:
         log.info("Error: " + str(e))
         return ""
-
-def _get_user_full_name(id):
-    """
-    Returns the full name of the user with a given ID.
-    """
-    query = model.Session.query(model.User).filter(model.User.id == id)
-    user = query.first()
-    if user:
-        return str(user.fullname)
-    else:
-        return "Unknown"
 
 def _is_follow_request(environ, result):
     """
@@ -100,13 +88,20 @@ class FollowerPlugin(SingletonPlugin):
         # create the follower table if it doesn't already exist
         model.follower_table.create(checkfirst=True)
         
-        # add our public folder to the CKAN's list of public folders
+        # add follower public folder to the CKAN's list of public folders
         here = os.path.dirname(__file__)
         public_dir = os.path.join(here, 'public')
         if config.get('extra_public_paths'):
             config['extra_public_paths'] += ',' + public_dir
         else:
             config['extra_public_paths'] = public_dir
+
+        # add follower template folder to the CKAN's list of template folders
+        template_dir = os.path.join(here, 'templates')
+        if config.get('extra_template_paths'):
+            config['extra_template_paths'] += ',' + template_dir
+        else:
+            config['extra_template_paths'] = template_dir
 
     def before_map(self, map):
         """
@@ -118,19 +113,22 @@ class FollowerPlugin(SingletonPlugin):
           package
         """
         map.connect('follow', '/api/2/follower',
-            controller='ckanext.follower.plugin:FollowerAPIController',
+            controller='ckanext.follower.controller:FollowerController',
             action='follow', 
             conditions=dict(method=['POST'], function=_is_follow_request))
         map.connect('unfollow', '/api/2/follower',
-            controller='ckanext.follower.plugin:FollowerAPIController',
+            controller='ckanext.follower.controller:FollowerController',
             action='unfollow', 
             conditions=dict(method=['POST'], function=_is_unfollow_request))
         map.connect('follower', '/api/2/follower',
-            controller='ckanext.follower.plugin:FollowerAPIController',
+            controller='ckanext.follower.controller:FollowerController',
             action='index', conditions=dict(method=['GET']))
-        map.connect('follower_package', '/api/2/follower/package/{id}',
-            controller='ckanext.follower.plugin:FollowerAPIController',
+        map.connect('package_followers', '/api/2/follower/package/{id}',
+            controller='ckanext.follower.controller:FollowerController',
             action='package')
+        map.connect('package_followers_page', '/package/followers/{id}',
+            controller='ckanext.follower.controller:FollowerController',
+            action='package_followers_page')
         return map
 
     def filter(self, stream):
@@ -146,10 +144,10 @@ class FollowerPlugin(SingletonPlugin):
         # if this is the read action of a package, show follower info
         if(routes.get('controller') == 'package' and
            routes.get('action') == 'read' and 
-           context.pkg.id):
+           c.pkg.id):
             # pass data to the javascript file that creates the
             # follower count and follow/unfollow buttons
-            data = {'package_id': context.pkg.id,
+            data = {'package_id': c.pkg.id,
                     'user_id': _get_user_id()}
             # add CSS styles for follower HTML
             stream = stream | Transformer('head').append(HTML(html.HEAD_CODE))
@@ -161,168 +159,3 @@ class FollowerPlugin(SingletonPlugin):
             stream = stream | Transformer('body//div[@id="package"]//h2[@class="head"]')\
                 .append(HTML(html.FOLLOWER_CODE))
         return stream
-
-
-class FollowerAPIController(BaseController):
-    """
-    The CKANEXT-Follower API
-
-    Creates two endpoints:
-    * index: allow users to follow/unfollow packages
-    * package/{id}: get a list of users following a given package
-    """
-    def _follow_package(self, user_id, table, package_id):
-        """
-        Update the database, setting user_id to follow
-        package_id.
-        """
-        session = model.meta.Session()
-
-        try:
-            follower = model.Follower(unicode(user_id),
-                                      unicode(table),
-                                      unicode(package_id))
-            session.add(follower)
-            session.commit()
-            return True
-
-        except Exception as e:
-            log.info("Error: " + str(e))
-            session.rollback()
-            return False
-
-    def _unfollow_package(self, user_id, table, package_id):
-        """
-        Update the database, removing user_id from package_id followers
-        """
-        session = model.meta.Session()
-
-        try:
-            query = model.Session.query(model.Follower)\
-                .filter(model.Follower.user_id == user_id)\
-                .filter(model.Follower.table == table)\
-                .filter(model.Follower.object_id == package_id)
-
-            follower = query.first()
-            session.delete(follower)
-            session.commit()
-            return True
-
-        except Exception as e:
-            log.info("Error: " + str(e))
-            session.rollback()
-            return False
-
-    def _validate_request(self):
-        """
-        Validates the current follow/unfollow request.
-
-        Performs the following checks:
-        * user_id field is present in request
-        * user_id matches id of currently logged in user
-        * object_type field is present in request
-        * object_type is valid
-        * package_id field is present in request
-
-        returns: (http_status, json_response)
-        """
-        # get the user ID from the request
-        if not request.params.get('user_id'):
-            return (400, {'error': "No user ID specified"})
-        user_id = request.params.get('user_id')
-
-        # make sure this matches the user_id of the current user
-        if not user_id == _get_user_id():
-            return (403, {'error': "You are not authorized to make this request"})
-
-        # check for an object type - specifies the type of object to follow
-        if not request.params.get('object_type'):
-            return (400, {'error': "No object type specified"})
-        object_type = request.params.get('object_type')
-        
-        # make sure that the object_type is valid
-        if not object_type in model.VALID_OBJECT_TYPES:
-            return (400, {'error': "Invalid object type"})
-
-        # check for a package ID
-        if not request.params.get('package_id'):
-            return (400, {'error': "No package ID specified"})
-
-        # valid request
-        return (200, {'status': "OK" })
-
-
-    @jsonify
-    def index(self):
-        """
-        default follower API endpoint.
-        """
-        # just return a default message
-        return {'doc': __doc__,
-                'doc_url': 'http://ckan.org/wiki/Extensions'}
-
-    @jsonify
-    def follow(self):
-        """
-        follower API endpoint: Follow a given package.
-        Format: {user_id, object_type, object_id, action}
-        """
-        status, result = self._validate_request()
-        if status != 200:
-            response.status_int = status
-            return result
-
-        # update the database
-        user_id = request.params.get('user_id')
-        object_type = request.params.get('object_type')
-        package_id = request.params.get('package_id')
-        if self._follow_package(user_id, object_type, package_id):
-            return result
-        else:
-            response.status_int = 500
-            return {'error': "Could not update database"}
-
-    @jsonify
-    def unfollow(self):
-        """
-        follower API endpoint: Unfollow a given package.
-        Format: {user_id, object_type, object_id, action}
-        """
-        status, result = self._validate_request()
-        if status != 200:
-            response.status_int = status
-            return result
-
-        # update the database
-        user_id = request.params.get('user_id')
-        object_type = request.params.get('object_type')
-        package_id = request.params.get('package_id')
-        if self._unfollow_package(user_id, object_type, package_id):
-            return result
-        else:
-            response.status_int = 500
-            return {'error': "Could not update database"}
-
-    @jsonify
-    def package(self, id):
-        """
-        package API endpoint.
-
-        Returns a list of {id, name} pairs for each user that
-        follow this package.
-        """
-        try:
-            query = model.Session.query(model.Follower)\
-                .filter(model.Follower.table == 'package')\
-                .filter(model.Follower.object_id == id)
-
-            users = []
-            for follower in query:
-                users.append({'id': follower.user_id,
-                              'name': _get_user_full_name(follower.user_id)})
-            return users
-
-        except Exception as e:
-            log.info("Error: " + str(e))
-            response.status_int = 500
-            return {'error': "Could not get package followers"}
