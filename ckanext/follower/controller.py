@@ -17,21 +17,6 @@ from ckan.lib.base import BaseController, response, render
 
 from ckanext.follower import model
 
-def _get_user_id():
-    """
-    Returns the user ID of the user that is currently
-    logged in (user name set in REMOTE_USER environment var).
-    """
-    try:
-        user_name = request.environ.get('REMOTE_USER')
-        query = model.User.search(user_name)
-        user = query.first()
-        return str(user.id)
-
-    except Exception as e:
-        log.info("Error: " + str(e))
-        return ""
-
 def _get_user_full_name(id):
     """
     Returns the full name of the user with a given ID.
@@ -113,7 +98,8 @@ class FollowerController(BaseController):
         user_id = request.params.get('user_id')
 
         # make sure this matches the user_id of the current user
-        if not user_id == _get_user_id():
+        user_name = request.environ.get('REMOTE_USER')
+        if not user_id == user_name:
             return (403, {'error': "You are not authorized to make this request"})
 
         # check for an object type - specifies the type of object to follow

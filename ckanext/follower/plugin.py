@@ -20,23 +20,7 @@ from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.interfaces import IConfigurable, IRoutes, IGenshiStreamFilter
 
 from ckanext.follower import model
-from ckanext.follower import controller
 from ckanext.follower import html
-
-def _get_user_id():
-    """
-    Returns the user ID of the user that is currently
-    logged in (user name set in REMOTE_USER environment var).
-    """
-    try:
-        user_name = request.environ.get('REMOTE_USER')
-        query = model.User.search(user_name)
-        user = query.first()
-        return str(user.id)
-
-    except Exception as e:
-        log.info("Error: " + str(e))
-        return ""
 
 def _is_follow_request(environ, result):
     """
@@ -147,8 +131,9 @@ class FollowerPlugin(SingletonPlugin):
            c.pkg.id):
             # pass data to the javascript file that creates the
             # follower count and follow/unfollow buttons
-            data = {'package_id': c.pkg.id,
-                    'user_id': _get_user_id()}
+            user_name = request.environ.get('REMOTE_USER') or ""
+            data = {'package_id': c.pkg.name,
+                    'user_id': user_name}
             # add CSS styles for follower HTML
             stream = stream | Transformer('head').append(HTML(html.HEAD_CODE))
             # add jquery and follower.js links
