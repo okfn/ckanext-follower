@@ -22,4 +22,5 @@ FOLLOWER_CODE = """
 <a id="package-followers"></a>
 <a id="follow-button"></a>
 </span>
+<div id="follower-error"></div>
 """

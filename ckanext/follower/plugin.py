@@ -16,6 +16,7 @@ from genshi.input import HTML
 from genshi.filters import Transformer
 from pylons.decorators import jsonify
 from pylons import request, tmpl_context as context
+from webob import Request
 from ckan.lib.base import BaseController, response
 from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.interfaces import IConfigurable, IRoutes, IGenshiStreamFilter
@@ -48,6 +49,34 @@ def _get_user_full_name(id):
         return str(user.fullname)
     else:
         return "Unknown"
+
+def _is_follow_request(environ, result):
+    """
+    Used to determine if a POST request to /follower
+    is a request to follow or unfollow a package.
+
+    Returns true if the 'action' request parameter
+    is set to 'follow'
+    """
+    r = Request(environ)
+    if r.params.get("action") == "follow":
+        return True
+    else:
+        return False
+
+def _is_unfollow_request(environ, result):
+    """
+    Used to determine if a POST request to /follower
+    is a request to follow or unfollow a package.
+
+    Returns true if the 'action' request parameter
+    is set to 'unfollow'
+    """
+    r = Request(environ)
+    if r.params.get("action") == "unfollow":
+        return True
+    else:
+        return False
 
 
 class FollowerPlugin(SingletonPlugin):
@@ -88,9 +117,17 @@ class FollowerPlugin(SingletonPlugin):
         * /api/2/package/{id}: get a list of users following a given
           package
         """
+        map.connect('follow', '/api/2/follower',
+            controller='ckanext.follower.plugin:FollowerAPIController',
+            action='follow', 
+            conditions=dict(method=['POST'], function=_is_follow_request))
+        map.connect('unfollow', '/api/2/follower',
+            controller='ckanext.follower.plugin:FollowerAPIController',
+            action='unfollow', 
+            conditions=dict(method=['POST'], function=_is_unfollow_request))
         map.connect('follower', '/api/2/follower',
             controller='ckanext.follower.plugin:FollowerAPIController',
-            action='index')
+            action='index', conditions=dict(method=['GET']))
         map.connect('follower_package', '/api/2/follower/package/{id}',
             controller='ckanext.follower.plugin:FollowerAPIController',
             action='package')
@@ -154,57 +191,117 @@ class FollowerAPIController(BaseController):
             session.rollback()
             return False
 
+    def _unfollow_package(self, user_id, table, package_id):
+        """
+        Update the database, removing user_id from package_id followers
+        """
+        session = model.meta.Session()
+
+        try:
+            query = model.Session.query(model.Follower)\
+                .filter(model.Follower.user_id == user_id)\
+                .filter(model.Follower.table == table)\
+                .filter(model.Follower.object_id == package_id)
+
+            follower = query.first()
+            session.delete(follower)
+            session.commit()
+            return True
+
+        except Exception as e:
+            log.info("Error: " + str(e))
+            session.rollback()
+            return False
+
+    def _validate_request(self):
+        """
+        Validates the current follow/unfollow request.
+
+        Performs the following checks:
+        * user_id field is present in request
+        * user_id matches id of currently logged in user
+        * object_type field is present in request
+        * object_type is valid
+        * package_id field is present in request
+
+        returns: (http_status, json_response)
+        """
+        # get the user ID from the request
+        if not request.params.get('user_id'):
+            return (400, {'error': "No user ID specified"})
+        user_id = request.params.get('user_id')
+
+        # make sure this matches the user_id of the current user
+        if not user_id == _get_user_id():
+            return (403, {'error': "You are not authorized to make this request"})
+
+        # check for an object type - specifies the type of object to follow
+        if not request.params.get('object_type'):
+            return (400, {'error': "No object type specified"})
+        object_type = request.params.get('object_type')
+        
+        # make sure that the object_type is valid
+        if not object_type in model.VALID_OBJECT_TYPES:
+            return (400, {'error': "Invalid object type"})
+
+        # check for a package ID
+        if not request.params.get('package_id'):
+            return (400, {'error': "No package ID specified"})
+
+        # valid request
+        return (200, {'status': "OK" })
+
+
     @jsonify
     def index(self):
         """
-        follow API endpoint.
-
-        POST actions request that a user is marked as following a given package.
-        Format: {user_id, object_type, object_id}
+        default follower API endpoint.
         """
-        # if POST request, should be trying to add a follower
-        if request.POST:
-            # get the user ID from the request
-            if not 'user_id' in request.POST:
-                response.status_int = 400
-                return {'error': "No user ID specified"}
-            user_id = request.POST['user_id']
+        # just return a default message
+        return {'doc': __doc__,
+                'doc_url': 'http://ckan.org/wiki/Extensions'}
 
-            # make sure this matches the user_id of the current user
-            if not user_id == _get_user_id():
-                response.status_int = 403
-                return {'error': "You are not authorized to make this request"}
+    @jsonify
+    def follow(self):
+        """
+        follower API endpoint: Follow a given package.
+        Format: {user_id, object_type, object_id, action}
+        """
+        status, result = self._validate_request()
+        if status != 200:
+            response.status_int = status
+            return result
 
-            # check for an object type 
-            # this specifies the type of object to follow, currently accepts
-            # only 'package'
-            if not 'object_type' in request.POST:
-                response.status_int = 400
-                return {'error': "No object type specified"}
-            object_type = request.POST['object_type']
-
-            # make sure that the object_type is valid
-            if not object_type in model.VALID_OBJECT_TYPES:
-                response.status_int = 400
-                return {'error': "Invalid object type"}
-
-            # check for a package ID
-            if not 'package_id' in request.POST:
-                response.status_int = 400
-                return {'error': "No package ID specified"}
-            package_id = request.POST['package_id']
-
-            # update the database
-            if self._follow_package(user_id, object_type, package_id):
-                return {'status': "Success"}
-            else:
-                response.status_int = 500
-                return {'error': "Could not update database"}
-        
-        # if not, just return a default message
+        # update the database
+        user_id = request.params.get('user_id')
+        object_type = request.params.get('object_type')
+        package_id = request.params.get('package_id')
+        if self._follow_package(user_id, object_type, package_id):
+            return result
         else:
-            return {'doc': __doc__,
-                    'doc_url': 'http://ckan.org/wiki/Extensions'}
+            response.status_int = 500
+            return {'error': "Could not update database"}
+
+    @jsonify
+    def unfollow(self):
+        """
+        follower API endpoint: Unfollow a given package.
+        Format: {user_id, object_type, object_id, action}
+        """
+        status, result = self._validate_request()
+        if status != 200:
+            response.status_int = status
+            return result
+
+        # update the database
+        user_id = request.params.get('user_id')
+        object_type = request.params.get('object_type')
+        package_id = request.params.get('package_id')
+        if self._unfollow_package(user_id, object_type, package_id):
+            return result
+        else:
+            response.status_int = 500
+            return {'error': "Could not update database"}
 
     @jsonify
     def package(self, id):

@@ -65,15 +65,11 @@ CKANEXT.FOLLOWER = {
         // post follow info to follower API
         followerData = {user_id: CKANEXT.FOLLOWER.userID,
                         object_type: 'package',
-                        package_id: CKANEXT.FOLLOWER.packageID};
+                        package_id: CKANEXT.FOLLOWER.packageID,
+                        action: 'follow'};
         $.post("/api/2/follower", followerData,
             // successful follow
             function(response){
-                // update the button text and class
-                // $('#follow-button-text').replaceWith("<span>Unfollow</span>");
-                // $('#follow-button')
-                //     .removeClass("positive-button")
-                //     .addClass("negative-button");
                 // remove any existing error message
                 $('div#follower-error').remove();
                 // update the follower count
@@ -90,22 +86,38 @@ CKANEXT.FOLLOWER = {
                     'Could not follow this package, please try again' +
                     ' later (Error STATUS)</div>';
                 errorHtml = errorHtml.replace('STATUS', error.status);
-                
-                // if an error message already exists, replace it
-                var errorNode = $('div#follower-error')
-                if(errorNode.length > 0){
-                    errorNode.replaceWith(errorHtml);
-                }
-                // if not, create a DIV after the heading
-                else{
-                    $('h2.head').after(errorHtml);
-                }
+                $('div#follower-error').replaceWith(errorHtml);
         });
      },
 
     // callback function for the unfollow button being clicked
     unfollow:function(){
-        alert('unfollow');
+        followerData = {user_id: CKANEXT.FOLLOWER.userID,
+                        object_type: 'package',
+                        package_id: CKANEXT.FOLLOWER.packageID,
+                        action: 'unfollow'};
+
+        $.post("/api/2/follower", followerData,
+            // successful follow
+            function(response){
+                // remove any existing error message
+                $('div#follower-error').remove();
+                // update the follower count
+                CKANEXT.FOLLOWER.packageFollowers();
+                // update the follow button
+                CKANEXT.FOLLOWER.isFollowing = false;
+                CKANEXT.FOLLOWER.followPackage();
+            })
+        .error(
+            function(error){
+                // JSON error message is contained in error.responseText
+                // HTTP error code is in error.status
+                var errorHtml = '<div id="follower-error">Error: ' +
+                    'Could not unfollow this package, please try again' +
+                    ' later (Error STATUS)</div>';
+                errorHtml = errorHtml.replace('STATUS', error.status);
+                $('div#follower-error').replaceWith(errorHtml);
+        });
      },
 
     followPackage:function(){
