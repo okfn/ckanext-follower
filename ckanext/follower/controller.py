@@ -21,7 +21,7 @@ def _get_user_full_name(id):
     """
     Returns the full name of the user with a given ID.
     """
-    query = model.Session.query(model.User).filter(model.User.id == id)
+    query = model.Session.query(model.User).filter(model.User.name == id)
     user = query.first()
     if user:
         return str(user.fullname)
@@ -198,4 +198,4 @@ class FollowerController(BaseController):
         """
         """
         # return render("/ckanext-follower/package_followers.html")
-        return "Test: " + str(id)
+        return "Package: " + str(id)
