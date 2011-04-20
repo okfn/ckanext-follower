@@ -21,6 +21,12 @@ and should be available.
 A follower count and a button to follow/unfollow packages should be
 available beside the RSS subscribe link on all package pages.
 
+To Do
+-----
+* Add page to display package followers
+* Add user page to display packages being followed
+* Change style of buttons to integrate better with CKAN theme
+
 Feedback
 --------
 Send any comments, queries, suggestions or bug reports to:
