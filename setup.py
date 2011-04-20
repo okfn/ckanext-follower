@@ -18,7 +18,8 @@ setup(
 	namespace_packages=['ckanext'],
     package_data = {'ckanext.follower' : ['public/ckanext-follower/*.js', 
                                           'public/ckanext-follower/css/*.css',
-                                          'public/ckanext-follower/images/*.png']},
+                                          'public/ckanext-follower/images/*.png',
+                                          'templates/*.html']},
 	include_package_data=True,
 	zip_safe=False,
 	install_requires=[
