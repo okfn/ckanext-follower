@@ -4,3 +4,5 @@ syntax: glob
 *.swp
 *.egg-info/*
 .DS_Store
+test.db
+data
