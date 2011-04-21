@@ -25,6 +25,12 @@ To Do
 -----
 * Change style of buttons to integrate better with CKAN theme
 
+Tests
+-----
+From the ckanext-follower directory, run:
+
+    $ nosetests --ckan
+
 Feedback
 --------
 Send any comments, queries, suggestions or bug reports to:
