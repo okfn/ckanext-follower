@@ -16,11 +16,13 @@ from genshi.input import HTML
 from genshi.filters import Transformer
 from pylons import request, tmpl_context as c
 from webob import Request
+from ckan.lib.base import h
 from ckan.plugins import SingletonPlugin, implements
 from ckan.plugins.interfaces import (IConfigurable, IRoutes, 
                                      IGenshiStreamFilter, IConfigurer)
 
 from ckanext.follower import model
+from ckanext.follower import controller
 from ckanext.follower import html
 
 def _is_follow_request(environ, result):
@@ -127,12 +129,17 @@ class FollowerPlugin(SingletonPlugin):
         """
         Required to implement IGenshiStreamFilter.
 
-        Only applies to package controllers with the read action.
+        If this is the package controller with the read action:
         Adds HTML to the document HEAD, the package heading and
-        the bottom of the body to create the follow/unfollow button
+        the bottom of the BODY to create the follow/unfollow button
         and the follower count button.
+
+        If this is the user controller with the read action:
+        Adds HTML to the BODY to display the currently followed
+        packages, if any exist.
         """
         routes = request.environ.get('pylons.routes_dict')
+
         # if this is the read action of a package, show follower info
         if(routes.get('controller') == 'package' and
            routes.get('action') == 'read' and 
@@ -151,4 +158,26 @@ class FollowerPlugin(SingletonPlugin):
             # RSS 'subscribe' link
             stream = stream | Transformer('body//div[@id="package"]//h2[@class="head"]')\
                 .append(HTML(html.FOLLOWER_CODE))
+
+        # if this is the read action of a user page, show packages being followed
+        if(routes.get('controller') == 'user' and
+           routes.get('action') == 'read' and 
+           c.user):
+            packages = controller.packages_followed_by(c.user)
+            if packages:
+                packages_html = ""
+                for package_number, package in enumerate(packages):
+                    # add a link to the package page
+                    packages_html += \
+                        h.link_to(package, 
+                                  h.url_for(controller='package', action='read', 
+                                            id=package))
+                    # add comma and space if this isn't the last package in the
+                    # list
+                    if package_number < len(packages) - 1:
+                        packages_html += ", "
+                packages_followed = {'packages_followed': packages_html}
+                stream = stream | Transformer('body//div[@class="activity"]//ul')\
+                    .append(HTML(html.PACKAGES_FOLLOWED_CODE % packages_followed))
+
         return stream

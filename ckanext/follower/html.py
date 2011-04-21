@@ -24,3 +24,7 @@ FOLLOWER_CODE = """
 </span>
 <div id="follower-error"></div>
 """
+
+PACKAGES_FOLLOWED_CODE = """
+<li><strong>Packages followed:</strong> %(packages_followed)s</li>
+"""

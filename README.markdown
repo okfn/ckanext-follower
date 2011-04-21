@@ -23,7 +23,6 @@ available beside the RSS subscribe link on all package pages.
 
 To Do
 -----
-* Add user page to display packages being followed
 * Change style of buttons to integrate better with CKAN theme
 
 Feedback

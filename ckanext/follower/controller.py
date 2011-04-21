@@ -17,14 +17,22 @@ from pylons import request, tmpl_context as c
 from ckan.lib.base import BaseController, response, render, abort
 from ckanext.follower import model
 
+def packages_followed_by(id):
+    """
+    Return a list of packages followed by user id.
+    """
+    query = model.Session.query(model.Follower)\
+        .filter(model.Follower.table == 'package')\
+        .filter(model.Follower.user_id == id)
+
+    packages = []
+    for package in query:
+        packages.append(package.object_id)
+    return packages
 
 class FollowerController(BaseController):
     """
     The CKANEXT-Follower Controller.
-    
-    Exposes the Follower API, creating two endpoints:
-    * index: allow users to follow/unfollow packages
-    * package/{id}: get a list of users following a given package
     """
     def _follow_package(self, user_id, table, package_id):
         """
