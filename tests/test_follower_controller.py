@@ -1,3 +1,4 @@
+import json
 from paste.deploy import appconfig
 import paste.fixture
 from ckan.config.middleware import make_app
@@ -18,6 +19,13 @@ class TestFollowerController(TestController):
 
     def test_index(self):
         response = self.app.get(url_for('follower'))
-        assert 'doc' in response, "doc not in response"
-        assert 'doc_url' in response, "doc_url not in response"
-        assert response.header('Content-Type') == "application/json"
+        # make sure that the response content type is JSON
+        assert response.header('Content-Type') == "application/json" ,\
+            "controller not returning a JSON object"
+        # parse the JSON response and check the values
+        json_response = json.loads(response.body)
+        assert len(json_response) == 2, "response does not contain 2 keys"
+        assert 'doc' in json_response, \
+            "response does not contain a 'doc' key"
+        assert 'doc_url' in json_response, \
+            "response does not contain a 'doc_url' key"
