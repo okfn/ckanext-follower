@@ -21,10 +21,6 @@ and should be available.
 A follower count and a button to follow/unfollow packages should be
 available beside the RSS subscribe link on all package pages.
 
-To Do
------
-* Change style of buttons to integrate better with CKAN theme
-
 Tests
 -----
 From the ckanext-follower directory, run:
