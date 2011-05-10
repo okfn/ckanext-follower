@@ -1,0 +1,6 @@
+span#follower { display: inline }
+#follower-error { color: #b00 }
+#follower-list { 
+    list-style-type: none;
+    margin-left: 0;
+}

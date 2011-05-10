@@ -120,7 +120,7 @@ class FollowerPlugin(SingletonPlugin):
         map.connect('package_followers', '/api/2/follower/package/{id}',
             controller='ckanext.follower.controller:FollowerController',
             action='package')
-        map.connect('package_followers_page', '/package/followers/{id}',
+        map.connect('package_followers_page', '/package/followers/{name}',
             controller='ckanext.follower.controller:FollowerController',
             action='package_followers_page')
         return map
@@ -146,9 +146,10 @@ class FollowerPlugin(SingletonPlugin):
            c.pkg.id):
             # pass data to the javascript file that creates the
             # follower count and follow/unfollow buttons
-            user_name = request.environ.get('REMOTE_USER') or ""
-            data = {'package_id': c.pkg.name,
-                    'user_id': user_name}
+            user_id = controller.get_user_id(request.environ.get('REMOTE_USER'))
+            data = {'package_id': c.pkg.id,
+                    'package_name': c.pkg.name,
+                    'user_id': user_id}
             # add CSS styles for follower HTML
             stream = stream | Transformer('head').append(HTML(html.HEAD_CODE))
             # add jquery and follower.js links
@@ -158,20 +159,25 @@ class FollowerPlugin(SingletonPlugin):
             # RSS 'subscribe' link
             stream = stream | Transformer('body//div[@id="package"]//h2[@class="head"]')\
                 .append(HTML(html.FOLLOWER_CODE))
+            # add the follower error DIV after the H2 tag
+            stream = stream | Transformer('body//div[@id="package"]//h2[@class="head"]')\
+                .after(HTML(html.ERROR_CODE))
 
         # if this is the read action of a user page, show packages being followed
         if(routes.get('controller') == 'user' and
            routes.get('action') == 'read' and 
            c.user):
-            packages = controller.packages_followed_by(c.user)
+            user_id = controller.get_user_id(c.user)
+            packages = controller.packages_followed_by(user_id)
             if packages:
                 packages_html = ""
                 for package_number, package in enumerate(packages):
                     # add a link to the package page
+                    package_name = controller.get_package_name(package)
                     packages_html += \
-                        h.link_to(package, 
+                        h.link_to(package_name, 
                                   h.url_for(controller='package', action='read', 
-                                            id=package))
+                                            id=package_name))
                     # add comma and space if this isn't the last package in the
                     # list
                     if package_number < len(packages) - 1:

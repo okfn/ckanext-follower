@@ -7,31 +7,26 @@ from ckan.model import meta, User, Package, Session
 from ckan.model.types import make_uuid
 from datetime import datetime
 
-VALID_OBJECT_TYPES = ['package']
-
 follower_table = meta.Table('follower', meta.metadata,
     meta.Column('id', meta.types.UnicodeText, primary_key=True, 
                 default=make_uuid),
     meta.Column('user_id', meta.types.UnicodeText, 
-                # meta.ForeignKey('user.id', onupdate='CASCADE', ondelete='CASCADE'),
+                meta.ForeignKey('user.id', onupdate='CASCADE', ondelete='CASCADE'),
                 nullable=False),
-    meta.Column('table', meta.types.UnicodeText, nullable=False),
-    meta.Column('object_id', meta.types.UnicodeText, nullable=False),
+    meta.Column('package_id', meta.types.UnicodeText, 
+                meta.ForeignKey('package.id', onupdate='CASCADE', ondelete='CASCADE'),
+                nullable=False),
     meta.Column('created', meta.DateTime, default=datetime.now),
-    sa.UniqueConstraint('user_id', 'table', 'object_id')
-    )
+    sa.UniqueConstraint('user_id', 'package_id'))
 
 class Follower(object):
-    def __init__(self, user_id, table, object_id):
+    def __init__(self, user_id, package_id):
         self.user_id = user_id
-        self.table = table
-        self.object_id = object_id
+        self.package_id = package_id
         self.created = None
     
     def __repr__(self):
-        return "<Follower('%s', '%s', '%s')>" % (self.user_id, 
-                                                 self.table, 
-                                                 self.object_id)
+        return "<Follower('%s', '%s')>" % (self.user_id, self.package_id)
 
 meta.mapper(Follower, follower_table)
 

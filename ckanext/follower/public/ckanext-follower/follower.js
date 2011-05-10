@@ -6,8 +6,9 @@
 var CKANEXT = CKANEXT || {};
 
 CKANEXT.FOLLOWER = {
-    init:function(packageID, userID){
+    init:function(packageID, packageName, userID){
         this.packageID = packageID;
+        this.packageName = packageName;
         this.userID = userID;
         this.isFollowing = this.isFollowingPackage();
         this.packageFollowers();
@@ -45,15 +46,25 @@ CKANEXT.FOLLOWER = {
     // show the number of people following this package
     packageFollowers:function(){
         var packageID = this.packageID;
+        var packageName = this.packageName;
 
         $.getJSON('/api/2/follower/package/' + packageID,
             function(data){
-                var html = '<a href="HREF" id="package-followers" ' +
-                    'class="button pcb"><span>TEXT</span></a>'
-                var text = data.length + " Following";
-                var followersURL = "/package/followers/" + packageID;
-                html = html.replace('HREF', followersURL);
-                html = html.replace('TEXT', text);
+                // if no followers, disable button
+                if(data.length == 0){
+                    var html = '<a id="package-followers" class="disabled-button pcb">' +
+                               '<span>0 Following</span></a>';
+                }
+                else{
+                    // if followers, show the count and provide a link to the
+                    // page with a list of package followers
+                    var html = '<a href="HREF" id="package-followers" ' +
+                        'class="button pcb"><span>TEXT</span></a>'
+                    var text = data.length + " Following";
+                    var followersURL = "/package/followers/" + packageName;
+                    html = html.replace('HREF', followersURL);
+                    html = html.replace('TEXT', text);
+                }
 
                 // replace the package followers button
                 $('a#package-followers').replaceWith(html);
@@ -64,7 +75,6 @@ CKANEXT.FOLLOWER = {
     follow:function(){
         // post follow info to follower API
         followerData = {user_id: CKANEXT.FOLLOWER.userID,
-                        object_type: 'package',
                         package_id: CKANEXT.FOLLOWER.packageID,
                         action: 'follow'};
         $.post("/api/2/follower", followerData,
@@ -93,7 +103,6 @@ CKANEXT.FOLLOWER = {
     // callback function for the unfollow button being clicked
     unfollow:function(){
         followerData = {user_id: CKANEXT.FOLLOWER.userID,
-                        object_type: 'package',
                         package_id: CKANEXT.FOLLOWER.packageID,
                         action: 'unfollow'};
 

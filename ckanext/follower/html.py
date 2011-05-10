@@ -1,10 +1,8 @@
 HEAD_CODE = """
+<link rel="stylesheet" href="/ckanext-follower/css/main.css" 
+      type="text/css" media="screen" /> 
 <link rel="stylesheet" href="/ckanext-follower/css/buttons.css" 
       type="text/css" media="screen" /> 
-<style type="text/css">
-span#follower { display: inline }
-#follower-error { color: #b00 }
-</style>
 """
 
 BODY_CODE = """
@@ -12,7 +10,7 @@ BODY_CODE = """
 <script type="text/javascript" src="/ckanext-follower/follower.js"></script>
 <script type="text/javascript">
     $('document').ready(function($){
-        CKANEXT.FOLLOWER.init('%(package_id)s', '%(user_id)s');
+        CKANEXT.FOLLOWER.init('%(package_id)s', '%(package_name)s', '%(user_id)s');
     });
 </script>
 """
@@ -22,6 +20,9 @@ FOLLOWER_CODE = """
 <a id="package-followers"></a>
 <a id="follow-button"></a>
 </span>
+"""
+
+ERROR_CODE = """
 <div id="follower-error"></div>
 """
 

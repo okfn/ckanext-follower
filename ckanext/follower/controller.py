@@ -17,24 +17,43 @@ from pylons import request, tmpl_context as c
 from ckan.lib.base import BaseController, response, render, abort
 from ckanext.follower import model
 
-def packages_followed_by(id):
+def packages_followed_by(user_id):
     """
     Return a list of packages followed by user id.
     """
     query = model.Session.query(model.Follower)\
-        .filter(model.Follower.table == 'package')\
-        .filter(model.Follower.user_id == id)
+        .filter(model.Follower.user_id == user_id)
+    return [p.package_id for p in query if query]
 
-    packages = []
-    for package in query:
-        packages.append(package.object_id)
-    return packages
+def get_package_name(package_id):
+    """
+    Get the name of the package with the given ID.
+    """
+    query = model.Session.query(model.Package)\
+        .filter(model.Package.id == package_id)
+    return query.first().name if query else None
+
+def get_package_id(package_name):
+    """
+    Return the ID of user_name, or None if no such user ID exists
+    """
+    query = model.Session.query(model.Package)\
+        .filter(model.Package.name == package_name)
+    return query.first().id if query else None
+
+def get_user_id(user_name):
+    """
+    Return the ID of user_name, or None if no such user ID exists
+    """
+    query = model.Session.query(model.User)\
+        .filter(model.User.name == user_name)
+    return query.first().id if query else None
 
 class FollowerController(BaseController):
     """
     The CKANEXT-Follower Controller.
     """
-    def _follow_package(self, user_id, table, package_id):
+    def _follow_package(self, user_id, package_id):
         """
         Update the database, setting user_id to follow
         package_id.
@@ -43,7 +62,6 @@ class FollowerController(BaseController):
 
         try:
             follower = model.Follower(unicode(user_id),
-                                      unicode(table),
                                       unicode(package_id))
             session.add(follower)
             session.commit()
@@ -54,7 +72,7 @@ class FollowerController(BaseController):
             session.rollback()
             return False
 
-    def _unfollow_package(self, user_id, table, package_id):
+    def _unfollow_package(self, user_id, package_id):
         """
         Update the database, removing user_id from package_id followers
         """
@@ -63,8 +81,7 @@ class FollowerController(BaseController):
         try:
             query = model.Session.query(model.Follower)\
                 .filter(model.Follower.user_id == user_id)\
-                .filter(model.Follower.table == table)\
-                .filter(model.Follower.object_id == package_id)
+                .filter(model.Follower.package_id == package_id)
 
             follower = query.first()
             session.delete(follower)
@@ -83,8 +100,6 @@ class FollowerController(BaseController):
         Performs the following checks:
         * user_id field is present in request
         * user_id matches id of currently logged in user
-        * object_type field is present in request
-        * object_type is valid
         * package_id field is present in request
 
         returns: (http_status, json_response)
@@ -95,18 +110,8 @@ class FollowerController(BaseController):
         user_id = request.params.get('user_id')
 
         # make sure this matches the user_id of the current user
-        user_name = request.environ.get('REMOTE_USER')
-        if not user_id == user_name:
+        if not user_id == get_user_id(request.environ.get('REMOTE_USER')):
             return (403, {'error': "You are not authorized to make this request"})
-
-        # check for an object type - specifies the type of object to follow
-        if not request.params.get('object_type'):
-            return (400, {'error': "No object type specified"})
-        object_type = request.params.get('object_type')
-        
-        # make sure that the object_type is valid
-        if not object_type in model.VALID_OBJECT_TYPES:
-            return (400, {'error': "Invalid object type"})
 
         # check for a package ID
         if not request.params.get('package_id'):
@@ -121,8 +126,7 @@ class FollowerController(BaseController):
         follows this package.
         """
         query = model.Session.query(model.Follower)\
-            .filter(model.Follower.table == 'package')\
-            .filter(model.Follower.object_id == package_id)
+            .filter(model.Follower.package_id == package_id)
 
         users = []
         for follower in query:
@@ -142,7 +146,7 @@ class FollowerController(BaseController):
     def follow(self):
         """
         follower API endpoint: Follow a given package.
-        Format: {user_id, object_type, object_id, action}
+        Format: {user_id, package_id, action}
         """
         status, result = self._validate_request()
         if status != 200:
@@ -151,9 +155,8 @@ class FollowerController(BaseController):
 
         # update the database
         user_id = request.params.get('user_id')
-        object_type = request.params.get('object_type')
         package_id = request.params.get('package_id')
-        if self._follow_package(user_id, object_type, package_id):
+        if self._follow_package(user_id, package_id):
             return result
         else:
             response.status_int = 500
@@ -163,7 +166,7 @@ class FollowerController(BaseController):
     def unfollow(self):
         """
         follower API endpoint: Unfollow a given package.
-        Format: {user_id, object_type, object_id, action}
+        Format: {user_id, package_id, action}
         """
         status, result = self._validate_request()
         if status != 200:
@@ -172,9 +175,8 @@ class FollowerController(BaseController):
 
         # update the database
         user_id = request.params.get('user_id')
-        object_type = request.params.get('object_type')
         package_id = request.params.get('package_id')
-        if self._unfollow_package(user_id, object_type, package_id):
+        if self._unfollow_package(user_id, package_id):
             return result
         else:
             response.status_int = 500
@@ -190,14 +192,14 @@ class FollowerController(BaseController):
         """
         return self._get_followers(id)
 
-    def package_followers_page(self, id):
+    def package_followers_page(self, name):
         """
         Display a page containing all of the users that are following
         a given package.
         """
-        c.pkg = model.Package.get(id)
+        c.pkg = model.Package.get(name)
         if not c.pkg:
             abort(404, _('Package not found'))
 
-        c.followers = self._get_followers(id)
+        c.followers = self._get_followers(get_package_id(name))
         return render("package_followers.html")
