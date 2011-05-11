@@ -31,7 +31,7 @@ def get_package_name(package_id):
     """
     query = model.Session.query(model.Package)\
         .filter(model.Package.id == package_id)
-    return query.first().name if query else None
+    return query.first().name if query.first() else None
 
 def get_package_id(package_name):
     """
@@ -39,7 +39,7 @@ def get_package_id(package_name):
     """
     query = model.Session.query(model.Package)\
         .filter(model.Package.name == package_name)
-    return query.first().id if query else None
+    return query.first().id if query.first() else None
 
 def get_user_id(user_name):
     """
@@ -47,7 +47,7 @@ def get_user_id(user_name):
     """
     query = model.Session.query(model.User)\
         .filter(model.User.name == user_name)
-    return query.first().id if query else None
+    return query.first().id if query.first() else None
 
 class FollowerController(BaseController):
     """

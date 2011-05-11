@@ -146,7 +146,7 @@ class FollowerPlugin(SingletonPlugin):
            c.pkg.id):
             # pass data to the javascript file that creates the
             # follower count and follow/unfollow buttons
-            user_id = controller.get_user_id(request.environ.get('REMOTE_USER'))
+            user_id = controller.get_user_id(request.environ.get('REMOTE_USER')) or ""
             data = {'package_id': c.pkg.id,
                     'package_name': c.pkg.name,
                     'user_id': user_id}
