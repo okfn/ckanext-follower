@@ -4,6 +4,8 @@ CKAN Follower Extension
 The Follower extension for CKAN adds the ability for users to follow
 data packages.
 
+**Current Status:** Beta
+
 Installation and Activation
 ---------------------------
 
