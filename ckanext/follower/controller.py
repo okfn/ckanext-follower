@@ -116,6 +116,13 @@ class FollowerController(BaseController):
         # check for a package ID
         if not request.params.get('package_id'):
             return (400, {'error': "No package ID specified"})
+        package_id = request.params.get('package_id')
+
+        # check that package ID exists in the database
+        query = model.Session.query(model.Package)\
+            .filter(model.Package.id == package_id)
+        if not query.first():
+            return (404, {'error': "Package not found"})
 
         # valid request
         return (200, {'status': "OK" })
