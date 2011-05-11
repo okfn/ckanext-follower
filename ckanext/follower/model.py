@@ -29,12 +29,3 @@ class Follower(object):
         return "<Follower('%s', '%s')>" % (self.user_id, self.package_id)
 
 meta.mapper(Follower, follower_table)
-
-
-if __name__ == "__main__":
-    # TODO: for testing only, remove
-    # wipe follower table
-    engine = sa.create_engine('postgresql://ckantest:pass@localhost/ckantest')
-    model.init_model(engine)
-    follower_table.drop(checkfirst=True)
-    follower_table.create(checkfirst=True)
