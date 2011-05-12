@@ -1,4 +1,4 @@
-span#follower { display: inline }
+span#follower { display: block }
 #follower-error { color: #b00 }
 #follower-list { 
     list-style-type: none;
