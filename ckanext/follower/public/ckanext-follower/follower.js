@@ -81,7 +81,7 @@ CKANEXT.FOLLOWER = {
             // successful follow
             function(response){
                 // remove any existing error message
-                $('div#follower-error').remove();
+                $('div#follower-error').empty();
                 // update the follower count
                 CKANEXT.FOLLOWER.packageFollowers();
                 // update the follow button
@@ -110,7 +110,7 @@ CKANEXT.FOLLOWER = {
             // successful follow
             function(response){
                 // remove any existing error message
-                $('div#follower-error').remove();
+                $('div#follower-error').empty();
                 // update the follower count
                 CKANEXT.FOLLOWER.packageFollowers();
                 // update the follow button
