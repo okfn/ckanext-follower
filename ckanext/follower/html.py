@@ -9,7 +9,8 @@ BODY_CODE = """
 <script type="text/javascript" src="/ckanext-follower/jquery-1.5.2.min.js"></script>
 <script type="text/javascript" src="/ckanext-follower/follower.js"></script>
 <script type="text/javascript">
-    $('document').ready(function($){
+    jQuery.noConflict();
+    jQuery('document').ready(function($){
         CKANEXT.FOLLOWER.init('%(package_id)s', '%(package_name)s', '%(user_id)s');
     });
 </script>
